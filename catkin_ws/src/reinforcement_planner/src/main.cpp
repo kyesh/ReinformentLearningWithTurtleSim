@@ -1,11 +1,42 @@
 #include <math.h>
 #include "ros/ros.h"
+#include <ros/callback_queue.h>
 #include "geometry_msgs/Twist.h"
 #include "turtlesim/Pose.h"
 
 ros::Publisher action;
 double XG = 1;
 double YG = 1;
+
+double A = 0;
+double B = 0;
+double C = 0;
+double D = 0;
+
+double lastA, lastB, lastC, lastD;
+
+turtlesim::Pose lastPos;
+
+void updateCoef( double &Coef, double stepSize){
+	int n = rand() % 3;
+	if(n == 3){
+		Coef = Coef + stepSize;
+	}else if(n == 0){
+		Coef = Coef - stepSize;
+	}
+	return;
+}
+
+void rosSpinFor(int seconds){
+
+	ros::Time end = ros::Time::now() + ros::Duration(seconds);
+
+	while(ros::Time::now()  <= end){
+		ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(0));
+	}
+
+	return;
+}
 
 //Forces range between - pi and pi
 double fixThetaRange(double theta){
@@ -26,18 +57,31 @@ double angleDiff(double a , double b){
 	return fixThetaRange(b-a);
 }
 
+double distance(double x1, double y1, double x2, double y2){
+
+        double a = y1 - y2;
+        double b =  x1 - x2;
+        double d = sqrt(a*a + b*b);
+	return d;
+
+}
+
+double reward(turtlesim::Pose state){
+
+	return  (5.0 - distance(state.x, state.y, XG, YG));
+
+}
+
 geometry_msgs::Twist policy(double xt, double yt, double xg, double yg, double thetat){
 
 	double thetag = atan2(yg - yt, xg - xt);
 	double thetad = angleDiff(thetat, thetag);
-	double a = yg - yt;
-	double b =  xg - xt;
-	double d = sqrt(a*a + b*b);
+	double d = distance(xt, yt, xg, yg);
 
 	geometry_msgs::Twist msg;
 
-	msg.linear.x = 1;
-	msg.angular.z = 1;
+	msg.linear.x = A*thetad + B*d;
+	msg.angular.z = C*thetad + D*d;
 
 	return msg;
 }
@@ -46,18 +90,52 @@ void turtleSimPos_callback(const turtlesim::Pose::ConstPtr& pos){
 
 	geometry_msgs::Twist msg = policy(pos->x, pos->y, XG, YG, pos->theta);
 	action.publish(msg);
+	lastPos = *pos;
 
 }
 
 int main(int argc, char **argv){
 	
 	
+	srand(time(NULL));
+	double lastScore = -10000000000;
+        double score = 0;
+	geometry_msgs::Twist stop;
+
+        stop.linear.x = 0;
+        stop.angular.z = 0;
+
+
 	ros::init(argc, argv, "reinforcement_planner");
 	ros::NodeHandle n;
-	action = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 0);
-	ros::Subscriber sub1 = n.subscribe("/turtle1/pose", 0, turtleSimPos_callback);
+	action = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 1);
+	ros::Subscriber sub1 = n.subscribe("/turtle1/pose", 1, turtleSimPos_callback);
 	
-	ros::spin();
+	while(true){
+
+		rosSpinFor(1);
+		action.publish(stop);
+		score = reward(lastPos);
+		ROS_INFO_STREAM("Score:" << score << " A:" << A << " B:" << B << " C:" << C << " D:" << D);
+
+		if(lastScore > score){
+			A = lastA;
+			B = lastB;
+			C = lastC;
+			D = lastD;
+		}
+
+		lastA = A;
+		lastB = B;
+		lastC = C;
+		lastD = D;
+
+		updateCoef(A, .1);
+		updateCoef(B, .1);
+		updateCoef(C, .1);
+		updateCoef(D, .1);
+
+	}
 	
 	return 0;
 	
