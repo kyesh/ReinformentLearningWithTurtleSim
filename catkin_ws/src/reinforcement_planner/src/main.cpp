@@ -22,12 +22,19 @@ turtlesim::Pose lastPos;
 
 void updateCoef( double &Coef, double stepSize){
 	int n = rand() % 3;
-	if(n == 3){
+	if(n == 2){
 		Coef = Coef + stepSize;
 	}else if(n == 0){
 		Coef = Coef - stepSize;
 	}
 	return;
+}
+
+void bound(double &var, double min , double max){
+	if(var > max)
+		var = max;
+	if(var < min)
+		var = min;
 }
 
 void rosSpinFor(int seconds){
@@ -82,9 +89,14 @@ geometry_msgs::Twist policy(double xt, double yt, double xg, double yg, double t
 	double d = distance(xt, yt, xg, yg);
 
 	geometry_msgs::Twist msg;
+	double x = A*thetad + B*d;
+	double z = C*thetad + D*d;
 
-	msg.linear.x = A*thetad + B*d;
-	msg.angular.z = C*thetad + D*d;
+	bound(x, 0, 5);
+	bound(z, -5, 5);
+
+	msg.linear.x = x;
+	msg.angular.z = z;
 
 	return msg;
 }
