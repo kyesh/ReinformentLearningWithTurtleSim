@@ -4,6 +4,8 @@
 #include "geometry_msgs/Twist.h"
 #include "turtlesim/Pose.h"
 #include "turtlesim/TeleportAbsolute.h"
+#include "turtlesim/SetPen.h"
+
 
 ros::Publisher action;
 double XG = 1;
@@ -109,17 +111,27 @@ int main(int argc, char **argv){
 
 	ros::init(argc, argv, "reinforcement_planner");
 	ros::NodeHandle n;
-	ros::ServiceClient client = n.serviceClient<turtlesim::TeleportAbsolute>("/turtle1/teleport_absolute");
+
+	ros::ServiceClient client1 = n.serviceClient<turtlesim::TeleportAbsolute>("/turtle1/teleport_absolute");
+	ros::ServiceClient client2 = n.serviceClient<turtlesim::SetPen>("/turtle1/set_pen");
+
 	action = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 1);
 	ros::Subscriber sub1 = n.subscribe("/turtle1/pose", 1, turtleSimPos_callback);
+
+	turtlesim::SetPen pen;
+	pen.request.r = 255;
+
 	turtlesim::TeleportAbsolute startPos;
 	startPos.request.x = 5;
 	startPos.request.y = 5;
 	startPos.request.theta = 0;
 	while(true){
-
-		if(client.call(startPos)){
+		pen.request.off = true;
+		client2.call(pen);
+		if(client1.call(startPos)){
 			ROS_INFO_STREAM("Should have teleported");
+			pen.request.off = false;
+			client2.call(pen);
 		}else{
 			ROS_INFO_STREAM("Something went wrong");
 		}
