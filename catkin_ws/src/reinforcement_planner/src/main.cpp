@@ -8,15 +8,13 @@
 
 
 ros::Publisher action;
-double XG = 1;
+double XG = 6;
 double YG = 1;
 
-double A = 0;
-double B = 0;
-double C = 0;
-double D = 0;
-
-double lastA, lastB, lastC, lastD;
+std::vector<double> linCoef(3,0);
+std::vector<double> thetaCoef(3,0);
+std::vector<double> lastLinCoef(3,0);
+std::vector<double> lastThetaCoef(3,0);
 
 turtlesim::Pose lastPos;
 
@@ -89,8 +87,8 @@ geometry_msgs::Twist policy(double xt, double yt, double xg, double yg, double t
 	double d = distance(xt, yt, xg, yg);
 
 	geometry_msgs::Twist msg;
-	double x = A*thetad + B*d;
-	double z = C*thetad + D*d;
+	double x = linCoef[0] + linCoef[1]*thetad + linCoef[2]*d;
+	double z = thetaCoef[0] + thetaCoef[1]*thetad + thetaCoef[2]*d;
 
 	bound(x, 0, 5);
 	bound(z, -5, 5);
@@ -150,26 +148,25 @@ int main(int argc, char **argv){
 		rosSpinFor(1);
 		action.publish(stop);
 		score = reward(lastPos);
-		ROS_INFO_STREAM("Score:" << score << " A:" << A << " B:" << B << " C:" << C << " D:" << D);
+		ROS_INFO_STREAM("Score:" << score << " linCoef:" << linCoef[0]  << " " << linCoef[1]  << " " << linCoef[2]  << " thetaCoef:" << thetaCoef[0] << " " << thetaCoef[1] << " " << thetaCoef[2]);
 
 		if(lastScore > score){
-			A = lastA;
-			B = lastB;
-			C = lastC;
-			D = lastD;
+			linCoef.assign(lastLinCoef.begin(),lastLinCoef.end());
+			thetaCoef.assign(lastThetaCoef.begin(),lastThetaCoef.end());
 		}else{
 			lastScore = score;
 		}
 
-		lastA = A;
-		lastB = B;
-		lastC = C;
-		lastD = D;
+                lastLinCoef.assign(linCoef.begin(),linCoef.end());
+                lastThetaCoef.assign(thetaCoef.begin(),thetaCoef.end());
 
-		updateCoef(A, .1);
-		updateCoef(B, .1);
-		updateCoef(C, .1);
-		updateCoef(D, .1);
+
+		updateCoef(linCoef[0], .1);
+		updateCoef(linCoef[1], .1);
+		updateCoef(linCoef[2], .1);
+		updateCoef(thetaCoef[0], .1);
+		updateCoef(thetaCoef[1], .1);
+		updateCoef(thetaCoef[2], .1);
 
 	}
 	
