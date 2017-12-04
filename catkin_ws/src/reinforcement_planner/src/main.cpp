@@ -3,6 +3,7 @@
 #include <ros/callback_queue.h>
 #include "geometry_msgs/Twist.h"
 #include "turtlesim/Pose.h"
+#include "turtlesim/TeleportAbsolute.h"
 
 ros::Publisher action;
 double XG = 1;
@@ -108,11 +109,20 @@ int main(int argc, char **argv){
 
 	ros::init(argc, argv, "reinforcement_planner");
 	ros::NodeHandle n;
+	ros::ServiceClient client = n.serviceClient<turtlesim::TeleportAbsolute>("/turtle1/teleport_absolute");
 	action = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 1);
 	ros::Subscriber sub1 = n.subscribe("/turtle1/pose", 1, turtleSimPos_callback);
-	
+	turtlesim::TeleportAbsolute startPos;
+	startPos.request.x = 5;
+	startPos.request.y = 5;
+	startPos.request.theta = 0;
 	while(true){
 
+		if(client.call(startPos)){
+			ROS_INFO_STREAM("Should have teleported");
+		}else{
+			ROS_INFO_STREAM("Something went wrong");
+		}
 		rosSpinFor(1);
 		action.publish(stop);
 		score = reward(lastPos);
@@ -123,6 +133,8 @@ int main(int argc, char **argv){
 			B = lastB;
 			C = lastC;
 			D = lastD;
+		}else{
+			lastScore = score;
 		}
 
 		lastA = A;
