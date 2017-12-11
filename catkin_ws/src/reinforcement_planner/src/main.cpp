@@ -12,9 +12,9 @@ ros::Publisher action;
 double XG = 6;
 double YG = 1;
 
-std::vector<double> linCoef(3,0);
+std::vector<double> linCoef(3,.3);
 std::vector<double> thetaCoef(3,0);
-std::vector<double> lastLinCoef(3,0);
+std::vector<double> lastLinCoef(3,.3);
 std::vector<double> lastThetaCoef(3,0);
 
 turtlesim::Pose lastPos;
@@ -95,7 +95,7 @@ geometry_msgs::Twist policy(double xt, double yt, double xg, double yg, double t
 	double d = distance(xt, yt, xg, yg);
 
 	geometry_msgs::Twist msg;
-	double x = linCoef[0] + linCoef[1]*thetad + linCoef[2]*d;
+	double x = linCoef[0] + linCoef[1]*abs(thetad) + linCoef[2]*d;
 	double z = thetaCoef[0] + thetaCoef[1]*thetad + thetaCoef[2]*d;
 
 	bound(x, 0, 5);
