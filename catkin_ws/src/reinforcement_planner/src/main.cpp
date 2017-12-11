@@ -5,7 +5,8 @@
 #include "turtlesim/Pose.h"
 #include "turtlesim/TeleportAbsolute.h"
 #include "turtlesim/SetPen.h"
-
+#include "turtlesim/Kill.h"
+#include "turtlesim/Spawn.h"
 
 ros::Publisher action;
 double XG = 6;
@@ -63,6 +64,13 @@ double fixThetaRange(double theta){
 //Gets anglular difference from a to be between -pi/2 and pi/2
 double angleDiff(double a , double b){
 	return fixThetaRange(b-a);
+}
+
+double getRandomRange(double range, double offset){
+
+	double random = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/range));
+	return random + offset;
+
 }
 
 double distance(double x1, double y1, double x2, double y2){
@@ -125,6 +133,9 @@ int main(int argc, char **argv){
 	ros::ServiceClient client1 = n.serviceClient<turtlesim::TeleportAbsolute>("/turtle1/teleport_absolute");
 	ros::ServiceClient client2 = n.serviceClient<turtlesim::SetPen>("/turtle1/set_pen");
 
+	ros::ServiceClient client3 = n.serviceClient<turtlesim::Spawn>("/spawn");
+	ros::ServiceClient client4 = n.serviceClient<turtlesim::Kill>("/kill");
+
 	action = n.advertise<geometry_msgs::Twist>("/turtle1/cmd_vel", 1);
 	ros::Subscriber sub1 = n.subscribe("/turtle1/pose", 1, turtleSimPos_callback);
 
@@ -132,41 +143,63 @@ int main(int argc, char **argv){
 	pen.request.r = 255;
 
 	turtlesim::TeleportAbsolute startPos;
-	startPos.request.x = 5;
-	startPos.request.y = 5;
-	startPos.request.theta = 0;
+	turtlesim::Spawn goal;
+	turtlesim::Kill goalk;
+	goal.request.name = "goal";
+	goalk.request.name = "goal";
 	while(true){
-		pen.request.off = true;
-		client2.call(pen);
-		if(client1.call(startPos)){
-			ROS_INFO_STREAM("Should have teleported");
-			pen.request.off = false;
+	
+		startPos.request.x = getRandomRange(10,.5);
+		startPos.request.y = getRandomRange(10,.5);
+		startPos.request.theta = getRandomRange(2*M_PI,-M_PI);
+
+		XG = getRandomRange(10,.5);
+		YG = getRandomRange(10,.5);
+
+		goal.request.x = XG;
+		goal.request.y = YG;
+
+		client3.call(goal);
+
+		for(int i=0; i <10; i++)
+		{
+
+			pen.request.off = true;
 			client2.call(pen);
-		}else{
-			ROS_INFO_STREAM("Something went wrong");
+			if(client1.call(startPos)){
+				ROS_INFO_STREAM("Should have teleported");
+				pen.request.off = false;
+				client2.call(pen);
+			}else{
+				ROS_INFO_STREAM("Something went wrong");
+			}
+			rosSpinFor(2);
+			action.publish(stop);
+			score = reward(lastPos);
+			ROS_INFO_STREAM("Score:" << score << " linCoef:" << linCoef[0]  << " " << linCoef[1]  << " " << linCoef[2]  << " thetaCoef:" << thetaCoef[0] << " " << thetaCoef[1] << " " << thetaCoef[2]);
+	
+			
+			if(lastScore > score && i > 0){
+				linCoef.assign(lastLinCoef.begin(),lastLinCoef.end());
+				thetaCoef.assign(lastThetaCoef.begin(),lastThetaCoef.end());
+			}else{
+				lastScore = score;
+			}
+	
+	                lastLinCoef.assign(linCoef.begin(),linCoef.end());
+	                lastThetaCoef.assign(thetaCoef.begin(),thetaCoef.end());
+	
+	
+			updateCoef(linCoef[0], .1);
+			updateCoef(linCoef[1], .1);
+			updateCoef(linCoef[2], .1);
+			updateCoef(thetaCoef[0], .1);
+			updateCoef(thetaCoef[1], .1);
+			updateCoef(thetaCoef[2], .1);
+
 		}
-		rosSpinFor(1);
-		action.publish(stop);
-		score = reward(lastPos);
-		ROS_INFO_STREAM("Score:" << score << " linCoef:" << linCoef[0]  << " " << linCoef[1]  << " " << linCoef[2]  << " thetaCoef:" << thetaCoef[0] << " " << thetaCoef[1] << " " << thetaCoef[2]);
 
-		if(lastScore > score){
-			linCoef.assign(lastLinCoef.begin(),lastLinCoef.end());
-			thetaCoef.assign(lastThetaCoef.begin(),lastThetaCoef.end());
-		}else{
-			lastScore = score;
-		}
-
-                lastLinCoef.assign(linCoef.begin(),linCoef.end());
-                lastThetaCoef.assign(thetaCoef.begin(),thetaCoef.end());
-
-
-		updateCoef(linCoef[0], .1);
-		updateCoef(linCoef[1], .1);
-		updateCoef(linCoef[2], .1);
-		updateCoef(thetaCoef[0], .1);
-		updateCoef(thetaCoef[1], .1);
-		updateCoef(thetaCoef[2], .1);
+		client4.call(goalk);
 
 	}
 	
