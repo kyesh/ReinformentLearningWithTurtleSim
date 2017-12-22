@@ -7,6 +7,9 @@
 #include "turtlesim/SetPen.h"
 #include "turtlesim/Kill.h"
 #include "turtlesim/Spawn.h"
+#include <iostream>
+#include <fstream>
+#include <string>
 
 ros::Publisher action;
 double XG = 6;
@@ -147,60 +150,72 @@ int main(int argc, char **argv){
 	turtlesim::Kill goalk;
 	goal.request.name = "goal";
 	goalk.request.name = "goal";
-	while(true){
+	char fileName[] = "run00.csv"; 
+
+	for(int p = 0; p<10; p++){
+		std::ofstream myfile;
+		fileName[4] = 64+p;
+		//std::string fileName ="run"+std::to_string(p)+".txt"; 
+		myfile.open(fileName);
+
+
+		for(int n = 0; n<60; n++){
 	
-		startPos.request.x = getRandomRange(10,.5);
-		startPos.request.y = getRandomRange(10,.5);
-		startPos.request.theta = getRandomRange(2*M_PI,-M_PI);
 
-		XG = getRandomRange(10,.5);
-		YG = getRandomRange(10,.5);
-
-		goal.request.x = XG;
-		goal.request.y = YG;
-
-		client3.call(goal);
-
-		for(int i=0; i <10; i++)
-		{
-
-			pen.request.off = true;
-			client2.call(pen);
-			if(client1.call(startPos)){
-				ROS_INFO_STREAM("Should have teleported");
-				pen.request.off = false;
+						startPos.request.x = getRandomRange(10,.5);
+			startPos.request.y = getRandomRange(10,.5);
+			startPos.request.theta = getRandomRange(2*M_PI,-M_PI);
+	
+			XG = getRandomRange(10,.5);
+			YG = getRandomRange(10,.5);
+	
+			goal.request.x = XG;
+			goal.request.y = YG;
+	
+			client3.call(goal);
+	
+			for(int i=0; i <10; i++)
+			{
+	
+				pen.request.off = true;
 				client2.call(pen);
-			}else{
-				ROS_INFO_STREAM("Something went wrong");
+				if(client1.call(startPos)){
+					ROS_INFO_STREAM("Should have teleported");
+					pen.request.off = false;
+					client2.call(pen);
+				}else{
+					ROS_INFO_STREAM("Something went wrong");
+				}
+				rosSpinFor(2);
+				action.publish(stop);
+				score = reward(lastPos);
+				ROS_INFO_STREAM("Score:" << score << " linCoef:" << linCoef[0]  << " " << linCoef[1]  << " " << linCoef[2]  << " thetaCoef:" << thetaCoef[0] << " " << thetaCoef[1] << " " << thetaCoef[2]);
+				myfile << score << std::endl;
+				
+				if(lastScore > score && i > 0){
+					linCoef.assign(lastLinCoef.begin(),lastLinCoef.end());
+					thetaCoef.assign(lastThetaCoef.begin(),lastThetaCoef.end());
+				}else{
+					lastScore = score;
+				}
+		
+		                lastLinCoef.assign(linCoef.begin(),linCoef.end());
+		                lastThetaCoef.assign(thetaCoef.begin(),thetaCoef.end());
+		
+		
+				updateCoef(linCoef[0], .1);
+				updateCoef(linCoef[1], .1);
+				updateCoef(linCoef[2], .1);
+				updateCoef(thetaCoef[0], .1);
+				updateCoef(thetaCoef[1], .1);
+				updateCoef(thetaCoef[2], .1);
+	
 			}
-			rosSpinFor(2);
-			action.publish(stop);
-			score = reward(lastPos);
-			ROS_INFO_STREAM("Score:" << score << " linCoef:" << linCoef[0]  << " " << linCoef[1]  << " " << linCoef[2]  << " thetaCoef:" << thetaCoef[0] << " " << thetaCoef[1] << " " << thetaCoef[2]);
 	
-			
-			if(lastScore > score && i > 0){
-				linCoef.assign(lastLinCoef.begin(),lastLinCoef.end());
-				thetaCoef.assign(lastThetaCoef.begin(),lastThetaCoef.end());
-			}else{
-				lastScore = score;
-			}
-	
-	                lastLinCoef.assign(linCoef.begin(),linCoef.end());
-	                lastThetaCoef.assign(thetaCoef.begin(),thetaCoef.end());
-	
-	
-			updateCoef(linCoef[0], .1);
-			updateCoef(linCoef[1], .1);
-			updateCoef(linCoef[2], .1);
-			updateCoef(thetaCoef[0], .1);
-			updateCoef(thetaCoef[1], .1);
-			updateCoef(thetaCoef[2], .1);
-
+			client4.call(goalk);
 		}
-
-		client4.call(goalk);
-
+		
+		myfile.close();
 	}
 	
 	return 0;
